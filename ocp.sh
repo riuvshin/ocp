@@ -44,7 +44,7 @@ get_tools() {
     else
         OC_PACKAGE="openshift-origin-client-tools-v3.6.0-c4dd4cf-linux-64bit.tar.gz"
         JQ_PACKAGE="jq-linux64"
-        ARCH="tar --strip 1 -xzf -C /tmp"
+        ARCH="tar --strip 1 -xzf"
     fi
     OC_URL=https://github.com/openshift/origin/releases/download/v3.6.0/$OC_PACKAGE
     JQ_URL=https://github.com/stedolan/jq/releases/download/jq-1.5/$JQ_PACKAGE
