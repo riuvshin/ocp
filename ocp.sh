@@ -1,7 +1,8 @@
 #!/bin/bash
 
 set -e
-#init VARS
+set -u
+
 DEFAULT_OC_PUBLIC_HOSTNAME="127.0.0.1"
 export OC_PUBLIC_HOSTNAME=${OC_PUBLIC_HOSTNAME:-${DEFAULT_OC_PUBLIC_HOSTNAME}}
 
@@ -84,19 +85,9 @@ server_is_booted() {
   fi
 }
 
-workspace_is_booted() {
-  STATUS_URL="http://${OPENSHIFT_NAMESPACE_URL}/api/workspace/${ws_id}"
-  WS_STATUS=$(curl -s ${STATUS_URL} | $JQ_BINARY -r '.status')
-  if [[ "${WS_STATUS}" == *"RUNNING"* ]]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
 wait_until_server_is_booted() {
   SERVER_BOOT_TIMEOUT=300
-  echo "wait che pod booting.."
+  echo "[CHE] wait CHE pod booting..."
   ELAPSED=0
   until server_is_booted || [ ${ELAPSED} -eq "${SERVER_BOOT_TIMEOUT}" ]; do
     sleep 2
@@ -104,40 +95,79 @@ wait_until_server_is_booted() {
   done
 }
 
-wait_until_workspace_is_booted() {
+check_workspace_status() {
+  STATUS_URL="http://${OPENSHIFT_NAMESPACE_URL}/api/workspace/${ws_id}"
+  WS_STATUS=$(curl -s ${STATUS_URL} | $JQ_BINARY -r '.status')
+  if [[ "${WS_STATUS}" == *"$1"* ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+wait_workspace_status() {
+  STATUS=$1
   WS_BOOT_TIMEOUT=300
-  echo "wait che workspace booting.."
+  echo "[TEST] wait che workspace status is ${STATUS}..."
   ELAPSED=0
-  until workspace_is_booted || [ ${ELAPSED} -eq "${WS_BOOT_TIMEOUT}" ]; do
+  until check_workspace_status ${STATUS} || [ ${ELAPSED} -eq "${WS_BOOT_TIMEOUT}" ]; do
     sleep 2
     ELAPSED=$((ELAPSED+1))
   done
 }
 
 run_test() {
-    echo "[TEST] create and run CHE workspace"
+    echo "[TEST] run CHE workspace test"
     ws_name="ocp-test-$(date +%s)"
+
+    # create workspace
     ws_create=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace?namespace=che&attribute=stackId:java-centos' \
     -H 'Content-Type: application/json;charset=UTF-8' \
     -H 'Accept: application/json, text/plain, */*' \
     --data-binary '{"commands":[{"commandLine":"mvn clean install -f ${current.project.path}","name":"build","type":"mvn","attributes":{"goal":"Build","previewUrl":""}}],"projects":[{"tags":["maven","spring","java"],"commands":[{"commandLine":"mvn -f ${current.project.path} clean install \ncp ${current.project.path}/target/*.war $TOMCAT_HOME/webapps/ROOT.war","name":"build","type":"mvn","attributes":{"previewUrl":"","goal":"Build"}},{"commandLine":"$TOMCAT_HOME/bin/catalina.sh run 2>&1","name":"run tomcat","type":"custom","attributes":{"previewUrl":"http://${server.port.8080}","goal":"Run"}},{"commandLine":"$TOMCAT_HOME/bin/catalina.sh stop","name":"stop tomcat","type":"custom","attributes":{"previewUrl":"","goal":"Run"}},{"commandLine":"mvn -f ${current.project.path} clean install \ncp ${current.project.path}/target/*.war $TOMCAT_HOME/webapps/ROOT.war \n$TOMCAT_HOME/bin/catalina.sh run 2>&1","name":"build and run","type":"mvn","attributes":{"previewUrl":"http://${server.port.8080}","goal":"Run"}},{"commandLine":"mvn -f ${current.project.path} clean install \ncp ${current.project.path}/target/*.war $TOMCAT_HOME/webapps/ROOT.war \n$TOMCAT_HOME/bin/catalina.sh jpda run 2>&1","name":"debug","type":"mvn","attributes":{"previewUrl":"http://${server.port.8080}","goal":"Debug"}}],"projects":[],"links":[],"mixins":[],"problems":[],"category":"Samples","projectType":"maven","source":{"location":"https://github.com/che-samples/web-java-spring.git","type":"git","parameters":{}},"description":"A basic example using Spring servlets. The app returns values entered into a submit form.","displayName":"web-java-spring","options":{},"name":"web-java-spring","path":"/web-java-spring","attributes":{"language":["java"]},"type":"maven"}],"defaultEnv":"default","environments":{"default":{"recipe":{"location":"rhche/centos_jdk8","type":"dockerimage"},"machines":{"dev-machine":{"agents":["org.eclipse.che.terminal","org.eclipse.che.ws-agent","com.redhat.bayesian.lsp"],"servers":{},"attributes":{"memoryLimitBytes":"2147483648"}}}}},"name":"'${ws_name}'","links":[]}' \
     --compressed )
-    [[ "$ws_create" == *"created"* ]]
-    [[ "$ws_create" == *"STOPPED"* ]]
+    [[ "$ws_create" == *"created"* ]] || exit 1
+    [[ "$ws_create" == *"STOPPED"* ]] || exit 1
     ws_id=$(echo ${ws_create} | $JQ_BINARY -r '.id')
-    [[ "$ws_id" == *"workspace"* ]]
-    echo "[TEST] workspace created succesfully"
+    [[ "$ws_id" == *"workspace"* ]] || exit 1
+    echo "[TEST] workspace '$ws_name' created succesfully"
 
+    # start workspace
     ws_run=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'/runtime?environment=default' \
     -H 'Content-Type: application/json;charset=UTF-8' \
     -H 'Accept: application/json, text/plain, */*' \
     -H 'Connection: keep-alive' \
     --data-binary '{}' \
     --compressed)
-   wait_until_workspace_is_booted
-   echo "[TEST] workspace started succesfully"
-   #TODO STOP
-   #TODO RM WS
+   wait_workspace_status "RUNNING"
+   echo "[TEST] workspace '$ws_name'started succesfully"
+   #TODO maybe add more checks that state is good
+
+   # stop workspace
+   ws_stop=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'/runtime?create-snapshot=false' -X DELETE \
+   -H 'Accept: application/json, text/plain, */*' \
+   -H 'Connection: keep-alive' \
+   --compressed \
+   -o /dev/null \
+   --write-out '%{http_code}')
+   [[ "$ws_stop" = "204" ]] || exit 1
+   wait_workspace_status "STOPPED"
+   echo "[TEST] workspace '$ws_name' stopped succesfully"
+
+   # remove workspace
+   ws_remove=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'' -X DELETE \
+   -H 'Accept: application/json, text/plain, */*' \
+   -H 'Connection: keep-alive' \
+   --compressed \
+   -o /dev/null \
+   --write-out '%{http_code}')
+   [[ "$ws_remove" = "204" ]] || exit 1
+   check_ws_removed=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace' \
+   -H 'Accept: application/json, text/plain, */*' \
+   -H 'Connection: keep-alive' \
+   --compressed)
+   [[ "$check_ws_removed" != *"${ws_id}"* ]] || exit 1
+   echo "[TEST] workspace '$ws_name' removed succesfully"
 }
 
 stop_ocp() {
@@ -145,14 +175,12 @@ stop_ocp() {
 }
 
 parse_args() {
-    HELP="
-    valid args: \n
-    --run-ocp - will run ocp \n
-    --stop-ocp - will stop ocp \n
-    --deploy-che - will deploy che to ocp \n
-    --test - will run simple test which will create CHE workspace and check that it is started normally \n
-    "
-
+    HELP="valid args: \n
+    --run-ocp - run ocp cluster\n
+    --stop-ocp - stop ocp cluster \n
+    --deploy-che - deploy che to ocp \n
+    --test -  run simple test which will create > start > stop > remove CHE workspace\n
+"
     if [ $# -eq 0 ]; then
         echo "No arguments supplied"
         echo -e $HELP
@@ -179,10 +207,10 @@ parse_args() {
                shift
            ;;
            *)
-                echo "You've passed unknown arg"
-                echo -e $HELP
-                exit 2
-            ;;
+           echo "You've passed unknown arg"
+           echo -e $HELP
+           exit 2
+           ;;
         esac
     done
 }
