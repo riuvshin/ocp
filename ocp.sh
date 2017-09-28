@@ -71,6 +71,7 @@ run_ocp() {
 
 deploy_che_to_ocp() {
     bash <(curl -s https://raw.githubusercontent.com/redhat-developer/rh-che/master/dev-scripts/openshift_deploy.sh)
+    wait_until_server_is_booted
 }
 
 server_is_booted() {
@@ -113,7 +114,7 @@ wait_until_workspace_is_booted() {
   done
 }
 
-test() {
+run_test() {
     echo "[TEST] create and run CHE workspace"
     ws_name="ocp-test-$(date +%s)"
     ws_create=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace?namespace=che&attribute=stackId:java-centos' \
@@ -136,10 +137,55 @@ test() {
    wait_until_workspace_is_booted
    echo "[TEST] workspace started succesfully"
    #TODO STOP
+   #TODO RM WS
+}
+
+stop_ocp() {
+    $OC_BINARY cluster down
+}
+
+parse_args() {
+    HELP="
+    valid args: \n
+    --run-ocp - will run ocp \n
+    --stop-ocp - will stop ocp \n
+    --deploy-che - will deploy che to ocp \n
+    --test - will run simple test which will create CHE workspace and check that it is started normally \n
+    "
+
+    if [ $# -eq 0 ]; then
+        echo "No arguments supplied"
+        echo -e $HELP
+        exit 1
+    fi
+
+    for i in "${@}"
+    do
+        case $i in
+           --run-ocp)
+               run_ocp
+               shift
+           ;;
+           --stop-ocp)
+               stop_ocp
+               shift
+           ;;
+           --deploy-che)
+               deploy_che_to_ocp
+               shift
+           ;;
+           --test)
+               run_test
+               shift
+           ;;
+           *)
+                echo "You've passed unknown arg"
+                echo -e $HELP
+                exit 2
+            ;;
+        esac
+    done
 }
 
 get_tools
-run_ocp
-deploy_che_to_ocp
-wait_until_server_is_booted
-$@
+parse_args $@
