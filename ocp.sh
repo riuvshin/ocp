@@ -64,6 +64,7 @@ get_tools() {
         wget -q -O $JQ_BINARY $JQ_URL
         chmod +x $JQ_BINARY
     fi
+    PATH=${PATH}:${TOOLS_DIR}
 }
 
 run_ocp() {
