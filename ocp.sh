@@ -3,10 +3,22 @@
 set -e
 set -u
 
+#OS specific defaults
+if [[ "$OSTYPE" == "darwin"* ]]; then
+DEFAULT_OC_PUBLIC_HOSTNAME="192.168.65.2"
+DEFAULT_OC_PUBLIC_IP="192.168.65.2"
+else
 DEFAULT_OC_PUBLIC_HOSTNAME="127.0.0.1"
-export OC_PUBLIC_HOSTNAME=${OC_PUBLIC_HOSTNAME:-${DEFAULT_OC_PUBLIC_HOSTNAME}}
-
 DEFAULT_OC_PUBLIC_IP="127.0.0.1"
+fi
+
+DEFAULT_CHE_MULTI_USER="false"
+export CHE_MULTI_USER=${CHE_MULTI_USER:-${DEFAULT_CHE_MULTI_USER}}
+
+DEFAULT_IMAGE_INIT="eclipse/che-init:nightly"
+export IMAGE_INIT=${IMAGE_INIT:-${DEFAULT_IMAGE_INIT}}
+
+export OC_PUBLIC_HOSTNAME=${OC_PUBLIC_HOSTNAME:-${DEFAULT_OC_PUBLIC_HOSTNAME}}
 export OC_PUBLIC_IP=${OC_PUBLIC_IP:-${DEFAULT_OC_PUBLIC_IP}}
 
 DEFAULT_OPENSHIFT_USERNAME="developer"
@@ -36,16 +48,19 @@ export CHE_IMAGE_TAG=${CHE_IMAGE_TAG:-${DEFAULT_CHE_IMAGE_TAG}}
 DEFAULT_IMAGE_PULL_POLICY="Always"
 export IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-${DEFAULT_IMAGE_PULL_POLICY}}
 
+
 get_tools() {
     TOOLS_DIR="/tmp"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         OC_PACKAGE="openshift-origin-client-tools-v3.6.0-c4dd4cf-mac.zip"
         JQ_PACKAGE="jq-osx-amd64"
         ARCH="unzip -d $TOOLS_DIR"
+        EXTRA_ARGS=""
     else
         OC_PACKAGE="openshift-origin-client-tools-v3.6.0-c4dd4cf-linux-64bit.tar.gz"
         JQ_PACKAGE="jq-linux64"
         ARCH="tar --strip 1 -xzf"
+        EXTRA_ARGS="-C $TOOLS_DIR"
     fi
     OC_URL=https://github.com/openshift/origin/releases/download/v3.6.0/$OC_PACKAGE
     JQ_URL=https://github.com/stedolan/jq/releases/download/jq-1.5/$JQ_PACKAGE
@@ -55,7 +70,7 @@ get_tools() {
     if [ ! -f $OC_BINARY ]; then
         echo "download oc client..."
         wget -q -O $TOOLS_DIR/$OC_PACKAGE $OC_URL
-        eval $ARCH $TOOLS_DIR/$OC_PACKAGE -C $TOOLS_DIR &>/dev/null
+        eval $ARCH $TOOLS_DIR/$OC_PACKAGE $EXTRA_ARGS &>/dev/null
         rm -rf $TOOLS_DIR/README.md $TOOLS_DIR/LICENSE $TOOLS_DIR/$OC_PACKAGE
     fi
 
@@ -67,13 +82,47 @@ get_tools() {
     PATH=${PATH}:${TOOLS_DIR}
 }
 
+ocp_is_booted() {
+    # for now we check only openshift registry because this is enough
+    ocp_registry_container_id=$(docker ps -a  | grep openshift/origin-docker-registry | cut -d ' ' -f1)
+    if [ ! -z $ocp_registry_container_id ];then
+        ocp_registry_container_status=$(docker inspect $ocp_registry_container_id | jq .[0] | jq -r '.State.Status')
+    else
+        return 1
+    fi
+    if [[ "${ocp_registry_container_status}" == "running" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+wait_ocp() {
+  OCP_BOOT_TIMEOUT=120
+  echo "[OCP] wait for ocp full boot..."
+  ELAPSED=0
+  until ocp_is_booted; do
+    if [ ${ELAPSED} -eq "${OCP_BOOT_TIMEOUT}" ];then
+        echo "OCP didn't started in $OCP_BOOT_TIMEOUT secs, exit"
+        exit 1
+    fi
+    sleep 2
+    ELAPSED=$((ELAPSED+1))
+  done
+}
+
 run_ocp() {
     $OC_BINARY cluster up --public-hostname="${OC_PUBLIC_HOSTNAME}" --routing-suffix="${OC_PUBLIC_IP}.nip.io"
+    wait_ocp
 }
 
 deploy_che_to_ocp() {
-    bash <(curl -s https://raw.githubusercontent.com/redhat-developer/rh-che/master/dev-scripts/openshift_deploy.sh)
+    docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/multiuser-conf:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull
+    bash $(pwd)/multiuser-conf/instance/config/openshift/scripts/deploy_che.sh
     wait_until_server_is_booted
+#TODO FIX for multi user need to handle auth
+#    bash $(pwd)/multiuser-conf/instance/config/openshift/scripts/replace_stacks.sh
+#    bash /Users/roman/development/codenvy_projects/che3/dockerfiles/init/modules/openshift/files/scripts/replace_stacks.sh
 }
 
 server_is_booted() {
@@ -118,6 +167,7 @@ wait_workspace_status() {
 }
 
 run_test() {
+    #TODO FIX for multi user need to handle auth
     echo "[TEST] run CHE workspace test"
     ws_name="ocp-test-$(date +%s)"
 
@@ -171,14 +221,17 @@ run_test() {
    echo "[TEST] workspace '$ws_name' removed succesfully"
 }
 
-stop_ocp() {
+destroy_ocp() {
+    $OC_BINARY project
+    $OC_BINARY delete all --all
+    $OC_BINARY delete pvc --all
     $OC_BINARY cluster down
 }
 
 parse_args() {
     HELP="valid args: \n
     --run-ocp - run ocp cluster\n
-    --stop-ocp - stop ocp cluster \n
+    --destroy - destroy ocp cluster \n
     --deploy-che - deploy che to ocp \n
     --test -  run simple test which will create > start > stop > remove CHE workspace\n
 "
@@ -195,8 +248,8 @@ parse_args() {
                run_ocp
                shift
            ;;
-           --stop-ocp)
-               stop_ocp
+           --destroy)
+               destroy_ocp
                shift
            ;;
            --deploy-che)
