@@ -117,7 +117,7 @@ run_ocp() {
 }
 
 deploy_che_to_ocp() {
-    docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/config:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull
+    docker run -i --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/config:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull --skip:nightly
     bash $(pwd)/config/instance/config/openshift/scripts/deploy_che.sh
     wait_until_server_is_booted
 #TODO FIX for multi user need to handle auth
