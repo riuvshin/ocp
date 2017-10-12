@@ -117,11 +117,11 @@ run_ocp() {
 }
 
 deploy_che_to_ocp() {
-    docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/multiuser-conf:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull
-    bash $(pwd)/multiuser-conf/instance/config/openshift/scripts/deploy_che.sh
+    docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/config:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull
+    bash $(pwd)/config/instance/config/openshift/scripts/deploy_che.sh
     wait_until_server_is_booted
 #TODO FIX for multi user need to handle auth
-#    bash $(pwd)/multiuser-conf/instance/config/openshift/scripts/replace_stacks.sh
+#    bash $(pwd)/config/instance/config/openshift/scripts/replace_stacks.sh
 #    bash /Users/roman/development/codenvy_projects/che3/dockerfiles/init/modules/openshift/files/scripts/replace_stacks.sh
 }
 
