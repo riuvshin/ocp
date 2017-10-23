@@ -27,7 +27,7 @@ export OPENSHIFT_USERNAME=${OPENSHIFT_USERNAME:-${DEFAULT_OPENSHIFT_USERNAME}}
 DEFAULT_OPENSHIFT_PASSWORD="developer"
 export OPENSHIFT_PASSWORD=${OPENSHIFT_PASSWORD:-${DEFAULT_OPENSHIFT_PASSWORD}}
 
-DEFAULT_OPENSHIFT_NAMESPACE_URL="che-eclipse-che.${OC_PUBLIC_IP}.nip.io"
+DEFAULT_OPENSHIFT_NAMESPACE_URL="eclipse-che.${OC_PUBLIC_IP}.nip.io"
 export OPENSHIFT_NAMESPACE_URL=${OPENSHIFT_NAMESPACE_URL:-${DEFAULT_OPENSHIFT_NAMESPACE_URL}}
 
 DEFAULT_OPENSHIFT_FLAVOR="ocp"
@@ -117,8 +117,9 @@ run_ocp() {
 }
 
 deploy_che_to_ocp() {
-    docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/config:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull
-    bash $(pwd)/config/instance/config/openshift/scripts/deploy_che.sh
+    docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/config:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull --skip:nightly
+    cd $(pwd)/config/instance/config/openshift/scripts/
+    bash deploy_che.sh
     wait_until_server_is_booted
 #TODO FIX for multi user need to handle auth
 #    bash $(pwd)/config/instance/config/openshift/scripts/replace_stacks.sh
@@ -126,7 +127,7 @@ deploy_che_to_ocp() {
 }
 
 server_is_booted() {
-  PING_URL="http://$OPENSHIFT_NAMESPACE_URL"
+  PING_URL="http://che-$OPENSHIFT_NAMESPACE_URL"
   HTTP_STATUS_CODE=$(curl -I -k ${PING_URL} -s -o /dev/null --write-out '%{http_code}')
   if [[ "${HTTP_STATUS_CODE}" = "200" ]] || [[ "${HTTP_STATUS_CODE}" = "302" ]]; then
     return 0
@@ -146,7 +147,7 @@ wait_until_server_is_booted() {
 }
 
 check_workspace_status() {
-  STATUS_URL="http://${OPENSHIFT_NAMESPACE_URL}/api/workspace/${ws_id}"
+  STATUS_URL="http://che-${OPENSHIFT_NAMESPACE_URL}/api/workspace/${ws_id}"
   WS_STATUS=$(curl -s ${STATUS_URL} | $JQ_BINARY -r '.status')
   if [[ "${WS_STATUS}" == *"$1"* ]]; then
     return 0
@@ -172,7 +173,7 @@ run_test() {
     ws_name="ocp-test-$(date +%s)"
 
     # create workspace
-    ws_create=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace?namespace=che&attribute=stackId:java-centos' \
+    ws_create=$(curl -s 'http://che-'${OPENSHIFT_NAMESPACE_URL}'/api/workspace?namespace=che&attribute=stackId:java-centos' \
     -H 'Content-Type: application/json;charset=UTF-8' \
     -H 'Accept: application/json, text/plain, */*' \
     --data-binary '{"commands":[{"commandLine":"mvn clean install -f ${current.project.path}","name":"build","type":"mvn","attributes":{"goal":"Build","previewUrl":""}}],"projects":[{"tags":["maven","spring","java"],"commands":[{"commandLine":"mvn -f ${current.project.path} clean install \ncp ${current.project.path}/target/*.war $TOMCAT_HOME/webapps/ROOT.war","name":"build","type":"mvn","attributes":{"previewUrl":"","goal":"Build"}},{"commandLine":"$TOMCAT_HOME/bin/catalina.sh run 2>&1","name":"run tomcat","type":"custom","attributes":{"previewUrl":"http://${server.port.8080}","goal":"Run"}},{"commandLine":"$TOMCAT_HOME/bin/catalina.sh stop","name":"stop tomcat","type":"custom","attributes":{"previewUrl":"","goal":"Run"}},{"commandLine":"mvn -f ${current.project.path} clean install \ncp ${current.project.path}/target/*.war $TOMCAT_HOME/webapps/ROOT.war \n$TOMCAT_HOME/bin/catalina.sh run 2>&1","name":"build and run","type":"mvn","attributes":{"previewUrl":"http://${server.port.8080}","goal":"Run"}},{"commandLine":"mvn -f ${current.project.path} clean install \ncp ${current.project.path}/target/*.war $TOMCAT_HOME/webapps/ROOT.war \n$TOMCAT_HOME/bin/catalina.sh jpda run 2>&1","name":"debug","type":"mvn","attributes":{"previewUrl":"http://${server.port.8080}","goal":"Debug"}}],"projects":[],"links":[],"mixins":[],"problems":[],"category":"Samples","projectType":"maven","source":{"location":"https://github.com/che-samples/web-java-spring.git","type":"git","parameters":{}},"description":"A basic example using Spring servlets. The app returns values entered into a submit form.","displayName":"web-java-spring","options":{},"name":"web-java-spring","path":"/web-java-spring","attributes":{"language":["java"]},"type":"maven"}],"defaultEnv":"default","environments":{"default":{"recipe":{"location":"rhche/centos_jdk8","type":"dockerimage"},"machines":{"dev-machine":{"agents":["org.eclipse.che.terminal","org.eclipse.che.ws-agent","com.redhat.bayesian.lsp"],"servers":{},"attributes":{"memoryLimitBytes":"2147483648"}}}}},"name":"'${ws_name}'","links":[]}' \
@@ -184,7 +185,7 @@ run_test() {
     echo "[TEST] workspace '$ws_name' created succesfully"
 
     # start workspace
-    ws_run=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'/runtime?environment=default' \
+    ws_run=$(curl -s 'http://che-'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'/runtime?environment=default' \
     -H 'Content-Type: application/json;charset=UTF-8' \
     -H 'Accept: application/json, text/plain, */*' \
     -H 'Connection: keep-alive' \
@@ -195,7 +196,7 @@ run_test() {
    #TODO maybe add more checks that state is good
 
    # stop workspace
-   ws_stop=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'/runtime?create-snapshot=false' -X DELETE \
+   ws_stop=$(curl -s 'http://che-'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'/runtime?create-snapshot=false' -X DELETE \
    -H 'Accept: application/json, text/plain, */*' \
    -H 'Connection: keep-alive' \
    --compressed \
@@ -206,14 +207,14 @@ run_test() {
    echo "[TEST] workspace '$ws_name' stopped succesfully"
 
    # remove workspace
-   ws_remove=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'' -X DELETE \
+   ws_remove=$(curl -s 'http://che-'${OPENSHIFT_NAMESPACE_URL}'/api/workspace/'${ws_id}'' -X DELETE \
    -H 'Accept: application/json, text/plain, */*' \
    -H 'Connection: keep-alive' \
    --compressed \
    -o /dev/null \
    --write-out '%{http_code}')
    [[ "$ws_remove" = "204" ]] || exit 1
-   check_ws_removed=$(curl -s 'http://'${OPENSHIFT_NAMESPACE_URL}'/api/workspace' \
+   check_ws_removed=$(curl -s 'http://che-'${OPENSHIFT_NAMESPACE_URL}'/api/workspace' \
    -H 'Accept: application/json, text/plain, */*' \
    -H 'Connection: keep-alive' \
    --compressed)
@@ -222,9 +223,10 @@ run_test() {
 }
 
 destroy_ocp() {
-    $OC_BINARY project
-    $OC_BINARY delete all --all
+    $OC_BINARY login -u system:admin
     $OC_BINARY delete pvc --all
+    $OC_BINARY delete pv --all
+    $OC_BINARY delete all --all
     $OC_BINARY cluster down
 }
 
