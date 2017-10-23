@@ -5,21 +5,17 @@ set -u
 
 #OS specific defaults
 if [[ "$OSTYPE" == "darwin"* ]]; then
-DEFAULT_OC_PUBLIC_HOSTNAME="192.168.65.2"
-DEFAULT_OC_PUBLIC_IP="192.168.65.2"
+    DEFAULT_OC_PUBLIC_HOSTNAME="192.168.65.2"
+    DEFAULT_OC_PUBLIC_IP="192.168.65.2"
 else
-DEFAULT_OC_PUBLIC_HOSTNAME="127.0.0.1"
-DEFAULT_OC_PUBLIC_IP="127.0.0.1"
+    DEFAULT_OC_PUBLIC_HOSTNAME="127.0.0.1"
+    DEFAULT_OC_PUBLIC_IP="127.0.0.1"
 fi
+export OC_PUBLIC_HOSTNAME=${OC_PUBLIC_HOSTNAME:-${DEFAULT_OC_PUBLIC_HOSTNAME}}
+export OC_PUBLIC_IP=${OC_PUBLIC_IP:-${DEFAULT_OC_PUBLIC_IP}}
 
 DEFAULT_CHE_MULTI_USER="false"
 export CHE_MULTI_USER=${CHE_MULTI_USER:-${DEFAULT_CHE_MULTI_USER}}
-
-DEFAULT_IMAGE_INIT="eclipse/che-init:nightly"
-export IMAGE_INIT=${IMAGE_INIT:-${DEFAULT_IMAGE_INIT}}
-
-export OC_PUBLIC_HOSTNAME=${OC_PUBLIC_HOSTNAME:-${DEFAULT_OC_PUBLIC_HOSTNAME}}
-export OC_PUBLIC_IP=${OC_PUBLIC_IP:-${DEFAULT_OC_PUBLIC_IP}}
 
 DEFAULT_OPENSHIFT_USERNAME="developer"
 export OPENSHIFT_USERNAME=${OPENSHIFT_USERNAME:-${DEFAULT_OPENSHIFT_USERNAME}}
@@ -39,15 +35,21 @@ export OPENSHIFT_ENDPOINT=${OPENSHIFT_ENDPOINT:-${DEFAULT_OPENSHIFT_ENDPOINT}}
 DEFAULT_ENABLE_SSL="false"
 export ENABLE_SSL=${ENABLE_SSL:-${DEFAULT_ENABLE_SSL}}
 
-DEFAULT_CHE_IMAGE_REPO="docker.io/rhchestage/rh-che-with-che-master"
-export CHE_IMAGE_REPO=${CHE_IMAGE_REPO:-${DEFAULT_CHE_IMAGE_REPO}}
-
 DEFAULT_CHE_IMAGE_TAG="nightly"
 export CHE_IMAGE_TAG=${CHE_IMAGE_TAG:-${DEFAULT_CHE_IMAGE_TAG}}
 
 DEFAULT_IMAGE_PULL_POLICY="Always"
 export IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-${DEFAULT_IMAGE_PULL_POLICY}}
 
+if [ "${CHE_MULTI_USER}" == "true" ]; then
+    DEFAULT_CHE_IMAGE_REPO="eclipse/che-server-multiuser"
+else
+    DEFAULT_CHE_IMAGE_REPO="eclipse/che-server"
+fi
+export CHE_IMAGE_REPO=${CHE_IMAGE_REPO:-${DEFAULT_CHE_IMAGE_REPO}}
+
+DEFAULT_IMAGE_INIT="eclipse/che-init"
+export IMAGE_INIT=${IMAGE_INIT:-${DEFAULT_IMAGE_INIT}}:${CHE_IMAGE_TAG}
 
 get_tools() {
     TOOLS_DIR="/tmp"
@@ -117,6 +119,7 @@ run_ocp() {
 }
 
 deploy_che_to_ocp() {
+    rm -rf $(pwd)/config
     docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/config:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull --skip:nightly
     cd $(pwd)/config/instance/config/openshift/scripts/
     bash deploy_che.sh
@@ -236,6 +239,10 @@ parse_args() {
     --destroy - destroy ocp cluster \n
     --deploy-che - deploy che to ocp \n
     --test -  run simple test which will create > start > stop > remove CHE workspace\n
+    =================================== \n
+    ENV vars \n
+    CHE_IMAGE_TAG - set CHE images tag, default: nightly \n
+    CHE_MULTI_USER - set CHE multi user mode, default: false (single user) \n
 "
     if [ $# -eq 0 ]; then
         echo "No arguments supplied"
