@@ -119,7 +119,7 @@ run_ocp() {
 }
 
 deploy_che_to_ocp() {
-    rm -rf $(pwd)/config
+    docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/config:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly destroy --quiet --skip:pull --skip:nightly
     docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/config:/data -e IMAGE_INIT=$IMAGE_INIT -e CHE_MULTIUSER=$CHE_MULTI_USER eclipse/che-cli:nightly config --skip:pull --skip:nightly
     cd $(pwd)/config/instance/config/openshift/scripts/
     bash deploy_che.sh
