@@ -230,7 +230,6 @@ run_test() {
 destroy_ocp() {
     $OC_BINARY login -u system:admin
     $OC_BINARY delete pvc --all
-    $OC_BINARY delete pv --all
     $OC_BINARY delete all --all
     $OC_BINARY cluster down
 }
