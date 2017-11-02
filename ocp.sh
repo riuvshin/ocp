@@ -90,7 +90,7 @@ ocp_is_booted() {
     # for now we check only openshift registry because this is enough
     ocp_registry_container_id=$(docker ps -a  | grep openshift/origin-docker-registry | cut -d ' ' -f1)
     if [ ! -z "$ocp_registry_container_id" ];then
-        ocp_registry_container_status=$(docker inspect "$ocp_registry_container_id" | jq .[0] | jq -r '.State.Status')
+        ocp_registry_container_status=$(docker inspect "$ocp_registry_container_id" | $JQ_BINARY .[0] | $JQ_BINARY -r '.State.Status')
     else
         return 1
     fi
