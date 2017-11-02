@@ -3,6 +3,7 @@
 set -e
 set -u
 
+init() {
 #OS specific defaults
 if [[ "$OSTYPE" == "darwin"* ]]; then
     DEFAULT_OC_PUBLIC_HOSTNAME="192.168.65.2"
@@ -50,6 +51,7 @@ export CHE_IMAGE_REPO=${CHE_IMAGE_REPO:-${DEFAULT_CHE_IMAGE_REPO}}
 
 DEFAULT_IMAGE_INIT="eclipse/che-init"
 export IMAGE_INIT=${IMAGE_INIT:-${DEFAULT_IMAGE_INIT}}:${CHE_IMAGE_TAG}
+}
 
 get_tools() {
     TOOLS_DIR="/tmp"
@@ -256,6 +258,8 @@ parse_args() {
     if [[ "$@" == *"--multiuser"* ]]; then
       CHE_MULTI_USER=true
     fi
+
+    init
 
     for i in "${@}"
     do
