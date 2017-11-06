@@ -121,8 +121,10 @@ run_ocp() {
 }
 
 deploy_che_to_ocp() {
-    #TODO workaround neet to set pull policy for init
-    docker pull "$IMAGE_INIT"
+    #IF DEFAULT_IMAGE_PULL_POLICY is no Always do not repull init image
+    if [ $DEFAULT_IMAGE_PULL_POLICY != "Always" ]; then
+        docker pull "$IMAGE_INIT"
+    fi
     CONFIG_DIR="/tmp/config"
     docker run -t --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${CONFIG_DIR}":/data -e IMAGE_INIT="$IMAGE_INIT" -e CHE_MULTIUSER="$CHE_MULTI_USER" eclipse/che-cli:nightly destroy --quiet --skip:pull --skip:nightly
     docker run -t --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${CONFIG_DIR}":/data -e IMAGE_INIT="$IMAGE_INIT" -e CHE_MULTIUSER="$CHE_MULTI_USER" eclipse/che-cli:nightly config --skip:pull --skip:nightly
