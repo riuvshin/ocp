@@ -8,15 +8,19 @@ init() {
 if [[ "$OSTYPE" == "darwin"* ]]; then
     DEFAULT_OC_PUBLIC_HOSTNAME="192.168.65.2"
     DEFAULT_OC_PUBLIC_IP="192.168.65.2"
+    export CHE_OAUTH_GITHUB_CLIENTID=d210c15f1a0c026a808c
+    export CHE_OAUTH_GITHUB_CLIENTSECRET=cc2589e6eed89ca460c8dbd13b9342cfddbe8098
 else
     DEFAULT_OC_PUBLIC_HOSTNAME="127.0.0.1"
     DEFAULT_OC_PUBLIC_IP="127.0.0.1"
+    export CHE_OAUTH_GITHUB_CLIENTID=23638e66bf0d53bdc777
+    export CHE_OAUTH_GITHUB_CLIENTSECRET=e20edd408a4becda5f6ccb83abb4b1e7a432fe46
 fi
 export OC_PUBLIC_HOSTNAME=${OC_PUBLIC_HOSTNAME:-${DEFAULT_OC_PUBLIC_HOSTNAME}}
 export OC_PUBLIC_IP=${OC_PUBLIC_IP:-${DEFAULT_OC_PUBLIC_IP}}
 
-DEFAULT_CHE_MULTI_USER="false"
-export CHE_MULTI_USER=${CHE_MULTI_USER:-${DEFAULT_CHE_MULTI_USER}}
+DEFAULT_CHE_MULTIUSER="false"
+export CHE_MULTIUSER=${CHE_MULTIUSER:-${DEFAULT_CHE_MULTIUSER}}
 
 DEFAULT_OPENSHIFT_USERNAME="developer"
 export OPENSHIFT_USERNAME=${OPENSHIFT_USERNAME:-${DEFAULT_OPENSHIFT_USERNAME}}
@@ -42,7 +46,7 @@ export CHE_IMAGE_TAG=${CHE_IMAGE_TAG:-${DEFAULT_CHE_IMAGE_TAG}}
 DEFAULT_IMAGE_PULL_POLICY="Always"
 export IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-${DEFAULT_IMAGE_PULL_POLICY}}
 
-if [ "${CHE_MULTI_USER}" == "true" ]; then
+if [ "${CHE_MULTIUSER}" == "true" ]; then
     DEFAULT_CHE_IMAGE_REPO="eclipse/che-server-multiuser"
 else
     DEFAULT_CHE_IMAGE_REPO="eclipse/che-server"
@@ -126,8 +130,8 @@ deploy_che_to_ocp() {
         docker pull "$IMAGE_INIT"
     fi
     CONFIG_DIR="/tmp/config"
-    docker run -t --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${CONFIG_DIR}":/data -e IMAGE_INIT="$IMAGE_INIT" -e CHE_MULTIUSER="$CHE_MULTI_USER" eclipse/che-cli:nightly destroy --quiet --skip:pull --skip:nightly
-    docker run -t --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${CONFIG_DIR}":/data -e IMAGE_INIT="$IMAGE_INIT" -e CHE_MULTIUSER="$CHE_MULTI_USER" eclipse/che-cli:nightly config --skip:pull --skip:nightly
+    docker run -t --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${CONFIG_DIR}":/data -e IMAGE_INIT="$IMAGE_INIT" -e CHE_MULTIUSER="$CHE_MULTIUSER" eclipse/che-cli:nightly destroy --quiet --skip:pull --skip:nightly
+    docker run -t --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${CONFIG_DIR}":/data -e IMAGE_INIT="$IMAGE_INIT" -e CHE_MULTIUSER="$CHE_MULTIUSER" eclipse/che-cli:nightly config --skip:pull --skip:nightly
     cd "${CONFIG_DIR}/instance/config/openshift/scripts/"
     bash deploy_che.sh
     wait_until_server_is_booted
@@ -246,7 +250,7 @@ parse_args() {
     =================================== \\n
     ENV vars \\n
     CHE_IMAGE_TAG - set CHE images tag, default: nightly \\n
-    CHE_MULTI_USER - set CHE multi user mode, default: false (single user) \\n
+    CHE_MULTIUSER - set CHE multi user mode, default: false (single user) \\n
 "
 
 
@@ -258,7 +262,7 @@ parse_args() {
     fi
 
     if [[ "$@" == *"--multiuser"* ]]; then
-      CHE_MULTI_USER=true
+      CHE_MULTIUSER=true
     fi
 
     init
