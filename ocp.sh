@@ -45,11 +45,7 @@ export CHE_IMAGE_TAG=${CHE_IMAGE_TAG:-${DEFAULT_CHE_IMAGE_TAG}}
 DEFAULT_IMAGE_PULL_POLICY="Always"
 export IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-${DEFAULT_IMAGE_PULL_POLICY}}
 
-if [ "${CHE_MULTIUSER}" == "true" ]; then
-    DEFAULT_CHE_IMAGE_REPO="eclipse/che-server-multiuser"
-else
-    DEFAULT_CHE_IMAGE_REPO="eclipse/che-server"
-fi
+DEFAULT_CHE_IMAGE_REPO="eclipse/che-server"
 export CHE_IMAGE_REPO=${CHE_IMAGE_REPO:-${DEFAULT_CHE_IMAGE_REPO}}
 
 DEFAULT_IMAGE_INIT="eclipse/che-init"
