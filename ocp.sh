@@ -124,8 +124,8 @@ run_ocp() {
 }
 
 deploy_che_to_ocp() {
-    #IF DEFAULT_IMAGE_PULL_POLICY is no Always do not repull init image
-    if [ $DEFAULT_IMAGE_PULL_POLICY != "Always" ]; then
+    #Repull init image only if DEFAULT_IMAGE_PULL_POLICY is set to Always
+    if [ $DEFAULT_IMAGE_PULL_POLICY == "Always" ]; then
         docker pull "$IMAGE_INIT"
     fi
     CONFIG_DIR="/tmp/config"
