@@ -50,6 +50,9 @@ export CHE_IMAGE_REPO=${CHE_IMAGE_REPO:-${DEFAULT_CHE_IMAGE_REPO}}
 
 DEFAULT_IMAGE_INIT="eclipse/che-init"
 export IMAGE_INIT=${IMAGE_INIT:-${DEFAULT_IMAGE_INIT}}:${CHE_IMAGE_TAG}
+
+DEFAULT_CONFIG_DIR="/tmp/config"
+export CONFIG_DIR=${CONFIG_DIR:-${DEFAULT_CONFIG_DIR}}
 }
 
 get_tools() {
@@ -124,7 +127,6 @@ deploy_che_to_ocp() {
     if [ $DEFAULT_IMAGE_PULL_POLICY == "Always" ]; then
         docker pull "$IMAGE_INIT"
     fi
-    CONFIG_DIR="/tmp/config"
     docker run -t --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${CONFIG_DIR}":/data -e IMAGE_INIT="$IMAGE_INIT" -e CHE_MULTIUSER="$CHE_MULTIUSER" eclipse/che-cli:nightly destroy --quiet --skip:pull --skip:nightly
     docker run -t --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${CONFIG_DIR}":/data -e IMAGE_INIT="$IMAGE_INIT" -e CHE_MULTIUSER="$CHE_MULTIUSER" eclipse/che-cli:nightly config --skip:pull --skip:nightly
     cd "${CONFIG_DIR}/instance/config/openshift/scripts/"
