@@ -71,7 +71,7 @@ get_tools() {
     OC_URL=https://github.com/openshift/origin/releases/download/v3.6.0/$OC_PACKAGE
     JQ_URL=https://github.com/stedolan/jq/releases/download/jq-1.5/$JQ_PACKAGE
     OC_BINARY="$TOOLS_DIR/oc"
-    JQ_BINARY="$TOOLS_DIR/$JQ_PACKAGE"
+    JQ_BINARY="$TOOLS_DIR/jq"
 
     if [ ! -f $OC_BINARY ]; then
         echo "download oc client..."
@@ -85,7 +85,7 @@ get_tools() {
         wget -q -O $JQ_BINARY $JQ_URL
         chmod +x $JQ_BINARY
     fi
-    PATH=${PATH}:${TOOLS_DIR}
+    export PATH=${PATH}:${TOOLS_DIR}
 }
 
 ocp_is_booted() {
