@@ -202,6 +202,9 @@ run_test() {
    wait_workspace_status "RUNNING"
    echo "[TEST] workspace '$ws_name'started succesfully"
    #TODO maybe add more checks that state is good
+   
+   echo "[TEST] waiting 5 seconds before stopping the workspace"
+   sleep 5
 
    # stop workspace
    ws_stop=$(curl -s "http://che-${OPENSHIFT_NAMESPACE_URL}/api/workspace/${ws_id}/runtime?create-snapshot=false" -X DELETE \
