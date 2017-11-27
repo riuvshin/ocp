@@ -213,8 +213,8 @@ run_test() {
    --compressed \
    -o /dev/null \
    --write-out '%{http_code}')
-   echo ">>>>>> $ws_stop"
-   [[ "$ws_stop" = "204" ]] #|| exit 1
+   echo "[TEST] workspace stop http status code: $ws_stop"
+   [[ "$ws_stop" = "204" ]] || exit 1
    wait_workspace_status "STOPPED"
    echo "[TEST] workspace '$ws_name' stopped succesfully"
 
@@ -225,14 +225,13 @@ run_test() {
    --compressed \
    -o /dev/null \
    --write-out '%{http_code}')
-   echo ">>>>>> $ws_remove"
-   [[ "$ws_remove" = "204" ]] #|| exit 1
+   echo "[TEST] workspace remove http status code $ws_remove"
+   [[ "$ws_remove" = "204" ]] || exit 1
    check_ws_removed=$(curl -s "http://che-${OPENSHIFT_NAMESPACE_URL}/api/workspace" \
    -H 'Accept: application/json, text/plain, */*' \
    -H 'Connection: keep-alive' \
    --compressed)
-   echo ">>>>>> $check_ws_removed" 
-   [[ "$check_ws_removed" != *"${ws_id}"* ]] #|| exit 1
+   [[ "$check_ws_removed" != *"${ws_id}"* ]] || exit 1
    echo "[TEST] workspace '$ws_name' removed succesfully"
 }
 
