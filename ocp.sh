@@ -3,15 +3,18 @@
 set -e
 
 init() {
+
+LOCAL_IP_ADDRESS=$(detectIP)
+
 #OS specific defaults
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    DEFAULT_OC_PUBLIC_HOSTNAME="192.168.65.2"
-    DEFAULT_OC_PUBLIC_IP="192.168.65.2"
+    DEFAULT_OC_PUBLIC_HOSTNAME="$LOCAL_IP_ADDRESS"
+    DEFAULT_OC_PUBLIC_IP="$LOCAL_IP_ADDRESS"
     [ -z "$CHE_OAUTH_GITHUB_CLIENTID" ] && export CHE_OAUTH_GITHUB_CLIENTID=d210c15f1a0c026a808c;
     [ -z "$CHE_OAUTH_GITHUB_CLIENTSECRET" ] && export CHE_OAUTH_GITHUB_CLIENTSECRET=cc2589e6eed89ca460c8dbd13b9342cfddbe8098;
 else
-    DEFAULT_OC_PUBLIC_HOSTNAME="127.0.0.1"
-    DEFAULT_OC_PUBLIC_IP="127.0.0.1"
+    DEFAULT_OC_PUBLIC_HOSTNAME="$LOCAL_IP_ADDRESS"
+    DEFAULT_OC_PUBLIC_IP="$LOCAL_IP_ADDRESS"
     [ -z "$CHE_OAUTH_GITHUB_CLIENTID" ] && export CHE_OAUTH_GITHUB_CLIENTID=23638e66bf0d53bdc777;
     [ -z "$CHE_OAUTH_GITHUB_CLIENTSECRET" ] && export CHE_OAUTH_GITHUB_CLIENTSECRET=e20edd408a4becda5f6ccb83abb4b1e7a432fe46;
 fi
@@ -242,6 +245,10 @@ destroy_ocp() {
     $OC_BINARY delete pvc --all
     $OC_BINARY delete all --all
     $OC_BINARY cluster down
+}
+
+detectIP() {
+    docker run --rm --net host eclipse/che-ip:nightly
 }
 
 parse_args() {
