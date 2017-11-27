@@ -172,9 +172,14 @@ wait_workspace_status() {
   WS_BOOT_TIMEOUT=300
   echo "[TEST] wait che workspace status is ${STATUS}..."
   ELAPSED=0
-  until check_workspace_status "${STATUS}" || [ ${ELAPSED} -eq "${WS_BOOT_TIMEOUT}" ]; do
-    sleep 2
-    ELAPSED=$((ELAPSED+1))
+  until check_workspace_status "${STATUS}"; do
+    if [[ ${ELAPSED} -eq "${WS_BOOT_TIMEOUT}" ]]; then
+        echo "[TEST] timeout while waiting workspace status $STATUS"
+        exit 1;
+    else
+        sleep 2
+        ELAPSED=$((ELAPSED+1))
+    fi
   done
 }
 
