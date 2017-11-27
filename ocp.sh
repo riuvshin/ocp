@@ -207,7 +207,7 @@ run_test() {
    sleep 5
 
    # stop workspace
-   ws_stop=$(curl -s "http://che-${OPENSHIFT_NAMESPACE_URL}/api/workspace/${ws_id}/runtime?create-snapshot=false" -X DELETE \
+   ws_stop=$(curl -s "http://che-${OPENSHIFT_NAMESPACE_URL}/api/workspace/${ws_id}/runtime" -X DELETE \
    -H 'Accept: application/json, text/plain, */*' \
    -H 'Connection: keep-alive' \
    --compressed \
